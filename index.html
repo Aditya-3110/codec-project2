@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Serverless Chat & Console Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-area">
+        <span class="logo-icon">⚡</span>
+        <h1>Serverless Chat <span class="badge">Simulator</span></h1>
+      </div>
+      <div class="system-status">
+        <div class="status-dot pulsing"></div>
+        <span>Local WebSocket API Gateway: Active</span>
+        <span class="conn-id-display" id="myConnectionId">Connecting...</span>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <!-- LEFT PANEL: Chat Client -->
+      <section class="panel chat-panel" id="chatPanel">
+        <!-- Login Screen -->
+        <div class="chat-auth" id="chatAuth">
+          <div class="auth-card">
+            <span class="auth-icon">💬</span>
+            <h2>Welcome to Chat</h2>
+            <p>Select your identity to connect to the serverless chat system.</p>
+            <div class="form-group">
+              <label for="usernameInput">Username</label>
+              <input type="text" id="usernameInput" placeholder="Enter username..." autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Select Avatar</label>
+              <div class="avatar-picker" id="avatarPicker">
+                <span class="avatar-opt active" data-avatar="🐱">🐱</span>
+                <span class="avatar-opt" data-avatar="🦊">🦊</span>
+                <span class="avatar-opt" data-avatar="🐼">🐼</span>
+                <span class="avatar-opt" data-avatar="🦖">🦖</span>
+                <span class="avatar-opt" data-avatar="🤖">🤖</span>
+                <span class="avatar-opt" data-avatar="🦄">🦄</span>
+                <span class="avatar-opt" data-avatar="👻">👻</span>
+                <span class="avatar-opt" data-avatar="👨‍💻">👨‍💻</span>
+              </div>
+            </div>
+            <button id="connectChatBtn" class="btn btn-primary">Connect to Serverless API</button>
+          </div>
+        </div>
+
+        <!-- Real Chat App -->
+        <div class="chat-app hidden" id="chatApp">
+          <div class="chat-sidebar">
+            <div class="sidebar-section flex-expand">
+              <h3>Channels</h3>
+              <ul class="channel-list" id="channelList">
+                <!-- Dynamically loaded from simulated DDB -->
+                <li class="channel-item active" data-room="general"># general</li>
+              </ul>
+            </div>
+            <div class="sidebar-section">
+              <h3>Room Manager</h3>
+              <div class="channel-actions">
+                <button class="btn btn-action-sm" id="openCreateModalBtn">Create Room</button>
+                <button class="btn btn-action-sm" id="openJoinModalBtn">Join with Code</button>
+              </div>
+            </div>
+            <div class="sidebar-section">
+              <h3>System Info</h3>
+              <div class="user-profile-badge">
+                <span id="userAvatar">🐱</span>
+                <div class="user-details">
+                  <strong id="userName">Username</strong>
+                  <span id="userConn">ID: Loading...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-main">
+            <div class="chat-header">
+              <h2 id="currentRoomTitle"># general</h2>
+              <span class="header-desc">Simulated Lambda broadcast routing</span>
+            </div>
+            <div class="messages-container" id="messagesContainer">
+              <!-- Messages load here -->
+            </div>
+            <form class="chat-input-area" id="chatInputForm">
+              <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+              <button type="submit" class="btn btn-send">Send ⚡</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT PANEL: AWS Console Simulator -->
+      <section class="panel console-panel">
+        <nav class="console-nav">
+          <button class="nav-tab active" data-tab="visualizer">
+            <span class="tab-icon">🗺️</span> Architecture Map
+          </button>
+          <button class="nav-tab" data-tab="logs">
+            <span class="tab-icon">📟</span> CloudWatch Logs
+          </button>
+          <button class="nav-tab" data-tab="dynamodb">
+            <span class="tab-icon">💾</span> DynamoDB Tables
+          </button>
+        </nav>
+
+        <div class="console-content">
+          <!-- Architecture Visualizer Tab -->
+          <div class="tab-panel active" id="tab-visualizer">
+            <div class="visualizer-container">
+              <div class="panel-header-inline">
+                <h3>Live Serverless Request Flow</h3>
+                <span class="description">Watch requests hit API Gateway, trigger Lambdas, and read/write to tables.</span>
+              </div>
+              
+              <!-- System Map Graphic -->
+              <div class="architecture-map">
+                <!-- Clients Node -->
+                <div class="map-node node-client" id="node-client">
+                  <div class="node-icon">📱</div>
+                  <div class="node-label">Chat Client</div>
+                  <div class="node-sub">WebSockets</div>
+                </div>
+
+                <!-- SVG Connector Lines Overlay -->
+                <svg class="map-connections" width="100%" height="100%">
+                  <!-- Client to API Gateway -->
+                  <path id="path-client-apigw" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="3" />
+                  
+                  <!-- API Gateway to Lambdas -->
+                  <path id="path-apigw-lambda-onconnect" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-apigw-lambda-ondisconnect" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-apigw-lambda-sendmessage" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-apigw-lambda-getmessages" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-apigw-lambda-getchannels" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-apigw-lambda-createchannel" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-apigw-lambda-joinchannel" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+
+                  <!-- Lambdas to DynamoDB -->
+                  <path id="path-lambda-onconnect-ddb" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-lambda-ondisconnect-ddb" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-lambda-sendmessage-ddb" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-lambda-getmessages-ddb" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-lambda-getchannels-ddb" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-lambda-createchannel-ddb" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                  <path id="path-lambda-joinchannel-ddb" d="" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+                </svg>
+
+                <!-- API Gateway Node -->
+                <div class="map-node node-apigw" id="node-apigw">
+                  <div class="node-icon">🌐</div>
+                  <div class="node-label">API Gateway</div>
+                  <div class="node-sub">WebSocket API</div>
+                </div>
+
+                <!-- Lambdas Column -->
+                <div class="lambda-nodes-group">
+                  <div class="map-node node-lambda" id="node-lambda-onconnect">
+                    <div class="node-icon">λ</div>
+                    <div class="node-label">onConnect</div>
+                    <div class="node-sub">Lambda</div>
+                    <div class="coldstart-indicator">COLD START</div>
+                  </div>
+                  <div class="map-node node-lambda" id="node-lambda-ondisconnect">
+                    <div class="node-icon">λ</div>
+                    <div class="node-label">onDisconnect</div>
+                    <div class="node-sub">Lambda</div>
+                    <div class="coldstart-indicator">COLD START</div>
+                  </div>
+                  <div class="map-node node-lambda" id="node-lambda-sendmessage">
+                    <div class="node-icon">λ</div>
+                    <div class="node-label">sendMessage</div>
+                    <div class="node-sub">Lambda</div>
+                    <div class="coldstart-indicator">COLD START</div>
+                  </div>
+                  <div class="map-node node-lambda" id="node-lambda-getmessages">
+                    <div class="node-icon">λ</div>
+                    <div class="node-label">getMessages</div>
+                    <div class="node-sub">Lambda</div>
+                    <div class="coldstart-indicator">COLD START</div>
+                  </div>
+                  <div class="map-node node-lambda" id="node-lambda-getchannels">
+                    <div class="node-icon">λ</div>
+                    <div class="node-label">getChannels</div>
+                    <div class="node-sub">Lambda</div>
+                    <div class="coldstart-indicator">COLD START</div>
+                  </div>
+                  <div class="map-node node-lambda" id="node-lambda-createchannel">
+                    <div class="node-icon">λ</div>
+                    <div class="node-label">createChannel</div>
+                    <div class="node-sub">Lambda</div>
+                    <div class="coldstart-indicator">COLD START</div>
+                  </div>
+                  <div class="map-node node-lambda" id="node-lambda-joinchannel">
+                    <div class="node-icon">λ</div>
+                    <div class="node-label">joinChannel</div>
+                    <div class="node-sub">Lambda</div>
+                    <div class="coldstart-indicator">COLD START</div>
+                  </div>
+                </div>
+
+                <!-- DynamoDB Node -->
+                <div class="map-node node-ddb" id="node-ddb">
+                  <div class="node-icon">💿</div>
+                  <div class="node-label">DynamoDB</div>
+                  <div class="node-sub">Key-Value Database</div>
+                </div>
+              </div>
+
+              <!-- Animated pulse particles overlay container -->
+              <div class="pulse-container" id="pulseContainer"></div>
+
+              <!-- Metrics Summary Cards -->
+              <div class="metrics-grid">
+                <div class="metric-card">
+                  <span class="m-val" id="metric-connections">0</span>
+                  <span class="m-lbl">Active Connections</span>
+                </div>
+                <div class="metric-card">
+                  <span class="m-val" id="metric-wcu">0</span>
+                  <span class="m-lbl">Write Capacity (WCUs)</span>
+                </div>
+                <div class="metric-card">
+                  <span class="m-val" id="metric-rcu">0</span>
+                  <span class="m-lbl">Read Capacity (RCUs)</span>
+                </div>
+                <div class="metric-card">
+                  <span class="m-val" id="metric-errors">0%</span>
+                  <span class="m-lbl">Function Error Rate</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CloudWatch Logs Tab -->
+          <div class="tab-panel" id="tab-logs">
+            <div class="logs-container">
+              <div class="logs-sidebar">
+                <h4>Log Groups</h4>
+                <ul class="log-group-list">
+                  <li class="log-group-item active" data-log-group="apigateway">/aws/apigateway/chat-api</li>
+                  <li class="log-group-item" data-log-group="lambda-onconnect">/aws/lambda/OnConnect</li>
+                  <li class="log-group-item" data-log-group="lambda-ondisconnect">/aws/lambda/OnDisconnect</li>
+                  <li class="log-group-item" data-log-group="lambda-sendmessage">/aws/lambda/SendMessage</li>
+                  <li class="log-group-item" data-log-group="lambda-getmessages">/aws/lambda/GetMessages</li>
+                  <li class="log-group-item" data-log-group="lambda-getchannels">/aws/lambda/GetChannels</li>
+                  <li class="log-group-item" data-log-group="lambda-createchannel">/aws/lambda/CreateChannel</li>
+                  <li class="log-group-item" data-log-group="lambda-joinchannel">/aws/lambda/JoinChannel</li>
+                </ul>
+              </div>
+              <div class="logs-viewer-panel">
+                <div class="logs-header">
+                  <span class="current-stream-title" id="currentLogGroupTitle">/aws/apigateway/chat-api</span>
+                  <button class="btn btn-clear-logs" id="clearLogsBtn">Clear Logs</button>
+                </div>
+                <div class="logs-console" id="logsConsole">
+                  <!-- Live Console Logs output -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DynamoDB Tab -->
+          <div class="tab-panel" id="tab-dynamodb">
+            <div class="dynamodb-container">
+              <div class="ddb-sidebar">
+                <h4>Tables</h4>
+                <ul class="ddb-table-list">
+                  <li class="ddb-table-item active" data-table="chat-connections">
+                    <span class="table-name">chat-connections</span>
+                    <span class="item-count" id="count-connections">0 items</span>
+                  </li>
+                  <li class="ddb-table-item" data-table="chat-messages">
+                    <span class="table-name">chat-messages</span>
+                    <span class="item-count" id="count-messages">0 items</span>
+                  </li>
+                  <li class="ddb-table-item" data-table="chat-channels">
+                    <span class="table-name">chat-channels</span>
+                    <span class="item-count" id="count-channels">3 items</span>
+                  </li>
+                </ul>
+                <div class="ddb-throughput-panel">
+                  <h4>Provisioned Throughput</h4>
+                  <div class="meter-group">
+                    <div class="meter-info">
+                      <span>Read Capacity Units</span>
+                      <strong id="wcuPercent">0 RCUs/sec</strong>
+                    </div>
+                    <div class="meter-bar"><div class="meter-fill" id="rcuBar" style="width: 0%;"></div></div>
+                  </div>
+                  <div class="meter-group">
+                    <div class="meter-info">
+                      <span>Write Capacity Units</span>
+                      <strong id="rcuPercent">0 WCUs/sec</strong>
+                    </div>
+                    <div class="meter-bar"><div class="meter-fill" id="wcuBar" style="width: 0%;"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="ddb-viewer-panel">
+                <div class="ddb-viewer-header">
+                  <h4 id="currentDDBTableTitle">Table: chat-connections</h4>
+                  <span class="ddb-action-tag" id="ddbActionTag">Scan operation completed</span>
+                </div>
+                <div class="ddb-table-content" id="ddbTableContent">
+                  <!-- Live database content in JSON or Table format -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Create Channel Modal -->
+  <div class="modal-overlay hidden" id="createChannelModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Create Serverless Channel</h3>
+        <span class="modal-close" id="closeCreateModalBtn">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="newChannelNameInput">Channel Name</label>
+          <input type="text" id="newChannelNameInput" placeholder="e.g. serverless-gurus" autocomplete="off">
+        </div>
+        <button class="btn btn-primary" id="submitCreateChannelBtn" style="width: 100%;">Create Channel ⚡</button>
+        
+        <div class="code-share-box hidden" id="codeShareBox">
+          <p>Channel Created! Share this invite code with others:</p>
+          <div class="code-display-row">
+            <span class="invite-code-text" id="inviteCodeDisplay">ABCXYZ</span>
+            <button class="btn btn-copy" id="copyCodeBtn">Copy Code</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join Channel Modal -->
+  <div class="modal-overlay hidden" id="joinChannelModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Join Room with Code</h3>
+        <span class="modal-close" id="closeJoinModalBtn">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="joinInviteCodeInput">Invite Code</label>
+          <input type="text" id="joinInviteCodeInput" placeholder="e.g. A2F8DE" autocomplete="off">
+        </div>
+        <button class="btn btn-primary" id="submitJoinChannelBtn" style="width: 100%;">Join Channel ⚡</button>
+        <p class="error-msg-text hidden" id="joinErrorMsg" style="color: var(--accent); margin-top: 10px; font-size: 13px; text-align: center;"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
